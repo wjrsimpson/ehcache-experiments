@@ -55,13 +55,14 @@ public class TestEhCache {
         config.setName("test-cache-with-max-bytes");
         // Allow more entries than we are going to use.
         config.setMaxEntriesLocalHeap(2000);
-        config.setMaxEntriesLocalDisk(2000);
-        config.setMaxBytesLocalDisk(6000L);
+        config.setMaxEntriesLocalDisk(2001);
+        long maxBytesLocalDisk = 6000L;
+        config.setMaxBytesLocalDisk(maxBytesLocalDisk);
         Cache cache = new Cache(config);
         cm.addCache(cache);
 
         // Fill cache
-        fillCache(cache);
+        long totalSerializedSize = fillCache(cache);
 
         // Give ehcache time to catch up
         sleep();
@@ -71,17 +72,22 @@ public class TestEhCache {
         long onDiskLength = cacheFile.length();
 
         System.out.println("Num elements in cache = " + cacheSize);
-        assertTrue("On disk size in bytes should be less than or equal to 6000, but is " + onDiskLength, onDiskLength <= 6000);
+        assertTrue("On disk size in bytes should be less than or equal to " + maxBytesLocalDisk + ", but is " + onDiskLength + " (total serialized size is "
+                + totalSerializedSize + ")", onDiskLength <= maxBytesLocalDisk);
 
         cm.shutdown();
     }
 
-    private void fillCache(Cache cache) {
+    private long fillCache(Cache cache) {
+        long totalSerializedSize = 0;
         for (int i = 0; i < 1000; i++) {
-            cache.put(new Element(i, "Object " + i));
+            Element element = new Element(i, "Object " + i);
+            totalSerializedSize += element.getSerializedSize();
+            cache.put(element);
         }
+        return totalSerializedSize;
     }
-    
+
     private void sleep() throws InterruptedException {
         Thread.sleep(10 * 1000);
     }
